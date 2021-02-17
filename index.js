@@ -1,36 +1,32 @@
-var express = require('express');
-var proxy = require('http-proxy-middleware');
+const express = require('express');
+const { createProxyMiddleware } = require('http-proxy-middleware');
 
 // proxy middleware options
-var filter = function (pathname, req) {
-  // replace www.myapp.example with origin(s) that your content will be served from
-  return (req.headers.origin === 'https://www.myapp.example');
-  // multiple origin version:
-  // return ((req.headers.origin === 'http://www.myapp.example') || (req.headers.origin === 'https://www.myapp.example'));   
+const filter = function(pathname, req) {
+    return true;
 };
 
-var apiOptions = {
-  // replace api.datasource.example with the url of your target host
-  target: 'https://api.datasource.example',
-  changeOrigin: true, // needed for virtual hosted sites like Heroku
-  pathRewrite: {
-    '/': '/', // remove endpoint from request path ('^/api/': '/')
-  },
-  onProxyReq: (proxyReq) => {
-    // append key-value pair for API key to end of path
-    // using KEYNAME provided by web service
-    // and KEYVALUE stored in Heroku environment variable
-    proxyReq.path += ('&KEYNAME=' + process.env.KEYVALUE);
-  },
-  logLevel: 'debug' // verbose server logging
+// proxy middleware options
+const options = {
+    target: 'https://developer.nps.gov', // target host
+    changeOrigin: true, // needed for virtual hosted sites
+    ws: true, // proxy websockets
+    pathRewrite: {
+        '^/nps/': '/', // rewrite path
+    },
+    onProxyReq: (proxyReq) => {
+        // append key-value pair for API key to end of path
+        // using KEYNAME provided by web service
+        // and KEYVALUE stored in Heroku environment variable
+        proxyReq.path += ('&api_key=' + process.env.NPS_APIKEY);
+    },
+    logLevel: 'debug' // verbose server logging
 };
 
 // create the proxy (without context)
-var apiProxy = proxy(filter, apiOptions);
+const exampleProxy = createProxyMiddleware(options);
 
-var app = express();
-app.set('port', (process.env.PORT || 5000));
-
-app.use('/api', apiProxy);
-
-app.listen(app.get('port'));
+// mount `exampleProxy` in web server
+const app = express();
+app.use('/nps', exampleProxy);
+app.listen(3000);
